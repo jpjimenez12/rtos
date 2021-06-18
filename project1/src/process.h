@@ -1,15 +1,20 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include <sys/time.h>
 #include <time.h>
-#include <setjmp.h>
 #include "context.h"
 
-#define TRUE        1
-#define FALSE       0
+// Define TRUE and FALSE if not already defined
+#ifndef TRUE
+#define TRUE 1
+#define FALSE 0
+#endif
+
+// Definitions of the states of the processes
 #define RUNNING     0
 #define READY       1
 #define FINISHED  2
 
+
+// Struct to manage the process related variables
 typedef struct Process
 {
     int id;
@@ -20,6 +25,8 @@ typedef struct Process
     jmp_buf *context;
 } Process;
 
+
+// Struct to manage the RR Queue
 typedef struct Queue
 {
     struct Process *proc;       // Pointer to the current process
@@ -33,5 +40,4 @@ void proc_yield(void);
 void proc_remove(void);
 void proc_finished(void);
 void proc_join(Process *proc);
-void proc_sleep(unsigned int time);
 

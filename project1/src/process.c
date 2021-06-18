@@ -3,7 +3,6 @@
 #include "process.h"
 
 
-
 // Pointers to implement the queue
 struct Queue *head;     // Pointer to the process on the head of the queue
 struct Queue *tail;     // Pointer to the process on the tail of the queue
@@ -17,6 +16,7 @@ jmp_buf *running;   // Pointer to the context of the running process
 int process_count = 0;  // Number of active processes
 int Tail_flag = TRUE;   // Flag to know if the process is the first tail proc
 int Last_Proc_Finish;   // ID of the last process finished
+static int quantum;      // Value of time for each process to run in the processor
 
 
 // Create a process and add it to the RR queue
@@ -85,7 +85,50 @@ void proc_remove(void)
 // Finish the process
 void proc_finished(void)
 {
-    current->proc->state = FINISHED;    // Set the status of the process as finished
-    context_switch(running, &main);     // Return the control to the scheduler
+    Last_Proc_Finish = current->proc->id;   // Save the id as last process finished
+    current->proc->state = FINISHED;        // Set the status of the process as finished
+    context_switch(running, &main);         // Return the control to the scheduler
 }
 
+// Scheduler
+void proc_join(Process *proc)
+{
+    current = head;     // Set the process in the head as current
+    time_t now;         // Current time in clock cycles
+
+    while(TRUE)
+    {
+        if(Last_Proc_Finish == proc->id)
+        {
+            break; // Process process is finished so break
+        }
+
+        if(current->proc->state == FINISHED)
+        {
+            // Do nothing and pass to the next process
+        }
+
+        struct sigaction action;        // Struct to manage the signals
+        action.sa_handler = proc_yield; // The signal handler is the process_yield function
+        action.sa_flags = 0;            // NO flags needed
+        sigfillset(&action.sa_mask);
+        sigaction(SIGALRM, &action, NULL);
+
+        struct itimerval timer;             // Create a timer from sys
+        timer.it_value.tv_sec = quantum;    // Usable time by every process
+        timer.it_interval = timer.it_value;
+        setitimer(ITIMER_REAL, &timer, NULL);
+
+        //********* add the lottery ticket method *********//
+
+        //*************************************************//
+
+        if(current->proc->state == READY)
+        {
+            running = current->proc->context;
+            context_switch(&main, running);     // Run the current process
+        }
+
+        current = current->nextproc;    // When the prev proc end running start the next one
+    }
+}
