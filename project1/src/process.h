@@ -11,7 +11,8 @@
 // Definitions of the states of the processes
 #define RUNNING     0
 #define READY       1
-#define FINISHED  2
+#define FINISHED    2
+#define MAX_TICKETS 10000
 
 
 // Struct to manage the process related variables
@@ -22,6 +23,7 @@ typedef struct Process
     int burst;
     float progress;
     double result;
+    int tickets[MAX_TICKETS];
     jmp_buf *context;
 } Process;
 
@@ -36,8 +38,11 @@ typedef struct Queue
 
 Process *proc_create(void (*function)(void*), void *arg);
 int proc_id(void);
+void proc_result(double result);
+void proc_progress(int current_term);
 void proc_yield(void);
 void proc_remove(void);
 void proc_finished(void);
 void proc_join(Process *proc);
+void Lottery(void);
 

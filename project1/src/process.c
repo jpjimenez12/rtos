@@ -9,25 +9,32 @@ struct Queue *tail;     // Pointer to the process on the tail of the queue
 struct Queue *current;  // Pointer to the currente running process
 
 // Context variable
-jmp_buf main;       // Variable to store the main context
+jmp_buf scheduler;       // Variable to store the main context
 jmp_buf *running;   // Pointer to the context of the running process
 
 // Global Variables
-int process_count = 0;  // Number of active processes
-int Tail_flag = TRUE;   // Flag to know if the process is the first tail proc
-int Last_Proc_Finish;   // ID of the last process finished
-static int quantum;      // Value of time for each process to run in the processor
+static int t_count = 0;         // Tickets counte
+static int process_count = 0;   // Number of active processes
+int Tail_flag = TRUE;           // Flag to know if the process is the first tail proc
+static int finished = 0;        // ID of the last process finished
+int quantum = 3;                // Value of time for each process to run in the processor
 
 
 // Create a process and add it to the RR queue
 Process *proc_create(void (*function)(void*), void *arg)
-{
-    Process *context = malloc(sizeof(jmp_buf)); // Memory allocation for the context
+{   
+    jmp_buf *context = malloc(sizeof(jmp_buf)); // Memory allocation for the context
     struct Process *proc = malloc(sizeof(Process)); // Memory allocation for the process
     context_create(context, function, (void *) arg); // Create the context of the process
     proc->context = context;    // Store the context in process struct
-    proc->id = process_count;   // Asign the ID to the process
+    proc->id = ++process_count;   // Asign the ID to the process
     proc->state = READY;        // Set the process ready to run
+    proc->burst = (int) arg;    // store the burst
+    // Loop to assign the tickets
+    for(int i = 0; i < (int) arg; i++)
+    {
+        proc->tickets[i] = ++t_count;
+    }
 
     if(head==NULL)  // if the list is empty add the process first
     {
@@ -37,7 +44,7 @@ Process *proc_create(void (*function)(void*), void *arg)
         first->prevproc = NULL; // There's no previous process
         head = first;   // Set the head to first process
         tail = first;   // Also set the tail to first process
-        free(first);    // Free the memory related to first
+        //free(first);    // Free the memory related to first
     }
     else    // The queue isn't empty so add the new process
     {
@@ -53,9 +60,10 @@ Process *proc_create(void (*function)(void*), void *arg)
             Tail_flag = FALSE;  // Fisrt tail process was set
         }
         tail = newp;    // Store the new proc in the tail
-        free(newp);     // Free the memory used by newp
+        //free(newp);     // Free the memory used by newp
     }
     return proc;    // Return the process created
+
 }
 
 // Obtain the id of the process
@@ -64,10 +72,31 @@ int proc_id(void)
     return current->proc->id;
 }
 
+// Store the result of the process
+void proc_result(double result)
+{
+    current->proc->result = result;
+}
+
+// Compute the progress of the current process
+void proc_progress(int current_term)
+{
+    int total = current->proc->burst;
+    total *= WORKUNIT;
+    float partial = (float) current_term/(float) total;
+    current->proc->progress = partial*100;
+}
+
+float progress()
+{
+    return current->proc->progress;
+}
+
+
 // Swith the control to the scheduler
 void proc_yield(void)
 {
-    context_switch(running, &main);
+    context_switch(running, &scheduler);
 }
 
 // Remove the process from the queue
@@ -76,18 +105,18 @@ void proc_remove(void)
     Queue *temp = current->nextproc;    // Store the next process
     current->prevproc->nextproc = current->nextproc;    // Update the prev proc
     current->nextproc->prevproc = current->prevproc;    // Update the next proc
-    free(current->proc->context);   // Free the memory used by the context
-    free(current->proc);            // Free the rest of the process memory
-    free(current);                  // Free the memory used by the queue element
+    free(current->proc->context);
+    free(current->proc);
+    free(current);
     current = temp;                 // Set the next process as current
 }
 
 // Finish the process
 void proc_finished(void)
 {
-    Last_Proc_Finish = current->proc->id;   // Save the id as last process finished
+    finished++;
     current->proc->state = FINISHED;        // Set the status of the process as finished
-    context_switch(running, &main);         // Return the control to the scheduler
+    context_switch(running, &scheduler);         // Return the control to the scheduler
 }
 
 // Scheduler
@@ -97,15 +126,10 @@ void proc_join(Process *proc)
     time_t now;         // Current time in clock cycles
 
     while(TRUE)
-    {
-        if(Last_Proc_Finish == proc->id)
+    {   
+        if(finished == process_count)
         {
             break; // Process process is finished so break
-        }
-
-        if(current->proc->state == FINISHED)
-        {
-            // Do nothing and pass to the next process
         }
 
         struct sigaction action;        // Struct to manage the signals
@@ -116,19 +140,46 @@ void proc_join(Process *proc)
 
         struct itimerval timer;             // Create a timer from sys
         timer.it_value.tv_sec = quantum;    // Usable time by every process
+        timer.it_value.tv_usec = 0;
         timer.it_interval = timer.it_value;
         setitimer(ITIMER_REAL, &timer, NULL);
-
-        //********* add the lottery ticket method *********//
-
-        //*************************************************//
 
         if(current->proc->state == READY)
         {
             running = current->proc->context;
-            context_switch(&main, running);     // Run the current process
+            context_switch(&scheduler, running);     // Run the current process
         }
 
-        current = current->nextproc;    // When the prev proc end running start the next one
+
+        //********* add the lottery ticket function *********//
+
+        Lottery();  // Do the lottery
+
+        //*************************************************//
+        //current = current->nextproc;    // When the prev proc end running start the next one
+        
+    }
+}
+
+
+void Lottery()
+{
+    int winner = rand() % t_count;
+    struct Queue *temp = malloc(sizeof(Queue));
+    temp = head;
+
+    printf("The winner is: %d\n", winner);
+
+    for(int j = 0; j < process_count; j++)
+    {
+        for(int i = 0; i < temp->proc->burst; i++)
+        {
+            if(temp->proc->tickets[i] == winner)
+            {
+                printf("The process %d is the winner\n", proc_id());
+                current = temp;
+            }
+        }
+        temp = temp->nextproc;
     }
 }

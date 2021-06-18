@@ -3,7 +3,6 @@
 
 static jmp_buf  caller;                     // Context that call the create function
 static jmp_buf  *new;                       // New context to be created
-static jmp_buf  original_context;
 static sigset_t new_signals;
 static void     (*new_function)(void *);
 static void     *new_args;
@@ -11,7 +10,7 @@ static void     *new_args;
 
 int context_save(jmp_buf *context)
 {
-    return sigset(context, 1);      // Save the execution context
+    return sigsetjmp(context, 1);      // Save the execution context
 }
 
 void context_restore(jmp_buf *context)
@@ -40,7 +39,7 @@ void unblock_signals()
 // This aux function starts when USR1 is activated
 void aux_funct()
 {
-    if(context_save(new) == FALSE)
+    if(context_save(new) == 0)
     {
         return;
     }
@@ -59,9 +58,6 @@ void aux_funct()
     unblock_signals();
 
     function(args);     // Run the function
-
-    fprintf(stderr, "There is a problem, maybe process exit problem.\n");
-    abort();
 }
 
 void context_create(jmp_buf *context, void (*function_addr)(void *), void *function_arg)
@@ -108,7 +104,7 @@ void context_create(jmp_buf *context, void (*function_addr)(void *), void *funct
     {
         sigaltstack(&original_alt_stack, NULL);
     }
-    sigaction(SIGUSR1, &original_signal, NULL);
+    sigaction(SIGUSR1, &original_action, NULL);
     sigprocmask(SIG_SETMASK, &original_signal, NULL);
 
     //  Switch to the new context
