@@ -1,3 +1,4 @@
+//#include <gtk/gtk.h>
 #include "process.h"            // Library to manage the process
 
 void function(void *arg)
@@ -11,9 +12,9 @@ void function(void *arg)
         proc_progress(i);   // Compute the progress of the process
         term *= (4.0*i*i-4.0*i+1.0)/(4.0*i*i+2.0*i);
         sum += term;
-        if(i%15 == 0)
+        if(i%5 == 0)
         {
-            proc_yield();
+            proc_yield();   // give the processor to other process
         }
     }
     
@@ -28,12 +29,13 @@ void function(void *arg)
 
 int main(int argc, char **argv)
 {   
-    int Total_proc = 25;
+
+    int Total_proc = 5;
     int burst[Total_proc];
     srand(time(NULL));
     for(int i = 0; i < Total_proc; i++)
     {
-        burst[i] = rand()%1000;
+        burst[i] = rand()%10;
     }
 
     // Creating all the processes

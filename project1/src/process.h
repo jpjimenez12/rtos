@@ -45,4 +45,4 @@ void proc_remove(void);
 void proc_finished(void);
 void proc_join(Process *proc);
 void Lottery(void);
-
+void update_tickets();

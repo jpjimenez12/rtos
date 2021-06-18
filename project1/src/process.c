@@ -116,6 +116,7 @@ void proc_finished(void)
 {
     finished++;
     current->proc->state = FINISHED;        // Set the status of the process as finished
+    //update_tickets();
     context_switch(running, &scheduler);         // Return the control to the scheduler
 }
 
@@ -168,7 +169,7 @@ void Lottery()
     struct Queue *temp = malloc(sizeof(Queue));
     temp = head;
 
-    printf("The winner is: %d\n", winner);
+    //printf("The winner is: %d\n", winner);
 
     for(int j = 0; j < process_count; j++)
     {
@@ -176,10 +177,31 @@ void Lottery()
         {
             if(temp->proc->tickets[i] == winner)
             {
-                printf("The process %d is the winner\n", proc_id());
+                //printf("The process %d is the winner\n", proc_id());
                 current = temp;
+                break;
             }
         }
         temp = temp->nextproc;
     }
 }
+
+/*
+void update_tickets()
+{
+    t_count = 0;
+    struct Queue *temp = malloc(sizeof(Queue));
+    temp = current;
+    for(int i=0; i<process_count; i++)
+    {
+        if(temp->proc->state != FINISHED)
+        {
+            for(int i=0; i<temp->proc->burst; i++)
+            {
+                temp->proc->tickets[i] = ++t_count;
+            }
+        }
+        temp = temp->nextproc;
+    }
+}
+*/
